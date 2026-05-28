@@ -1,98 +1,186 @@
-import { Image } from 'expo-image';
-import { Platform, StyleSheet } from 'react-native';
+import { useAuth } from "@/context/AuthContext";
+import { db } from "@/lib/firebase";
+import type { Screen } from "@/lib/types";
+import { router } from "expo-router";
+import {
+  collection,
+  onSnapshot,
+  orderBy,
+  query,
+  where,
+} from "firebase/firestore";
+import { useEffect, useState } from "react";
+import {
+  ActivityIndicator,
+  ScrollView,
+  StatusBar,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from "react-native";
 
-import { HelloWave } from '@/components/hello-wave';
-import ParallaxScrollView from '@/components/parallax-scroll-view';
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { Link } from 'expo-router';
+// Iconos simples por routePath — se pueden extender
+const SCREEN_ICONS: Record<string, string> = {
+  "pantallas/usuarios": "👥",
+  "pantallas/roles": "🛡️",
+  "pantallas/pantallas": "🖥️",
+  "pantallas/logs": "📋",
+};
 
-export default function HomeScreen() {
+export default function Index() {
+  const { resolvedPermissionKeys, isAuthenticated, appUser } = useAuth();
+  const [screens, setScreens] = useState<Screen[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  // Suscripción en tiempo real a pantallas activas
+  useEffect(() => {
+    if (!isAuthenticated) return;
+
+    const q = query(
+      collection(db, "screens"),
+      where("isActive", "==", true),
+      orderBy("order", "asc"),
+    );
+
+    const unsub = onSnapshot(q, (snap) => {
+      const all = snap.docs.map((d) => ({ id: d.id, ...d.data() }) as Screen);
+
+      // Filtrar pantallas de /pantallas según permisos del usuario
+      const visible = all.filter((s) => {
+        // Las pantallas de tabs siempre se muestran (index, profile)
+        if (!s.routePath.startsWith("pantallas/")) return false;
+        // Verificar que el usuario tenga TODOS los permisos requeridos
+        return s.requiredPermissions.every((k) =>
+          resolvedPermissionKeys.has(k),
+        );
+      });
+
+      setScreens(visible);
+      setLoading(false);
+    });
+
+    return unsub;
+  }, [isAuthenticated, resolvedPermissionKeys]);
+
+  if (loading) {
+    return (
+      <View style={styles.center}>
+        <ActivityIndicator size="large" color="#6366f1" />
+      </View>
+    );
+  }
+
   return (
-    <ParallaxScrollView
-      headerBackgroundColor={{ light: '#A1CEDC', dark: '#1D3D47' }}
-      headerImage={
-        <Image
-          source={require('@/assets/images/partial-react-logo.png')}
-          style={styles.reactLogo}
-        />
-      }>
-      <ThemedView style={styles.titleContainer}>
-        <ThemedText type="title">Welcome!</ThemedText>
-        <HelloWave />
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 1: Try it</ThemedText>
-        <ThemedText>
-          Edit <ThemedText type="defaultSemiBold">app/(tabs)/index.tsx</ThemedText> to see changes.
-          Press{' '}
-          <ThemedText type="defaultSemiBold">
-            {Platform.select({
-              ios: 'cmd + d',
-              android: 'cmd + m',
-              web: 'F12',
-            })}
-          </ThemedText>{' '}
-          to open developer tools.
-        </ThemedText>
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <Link href="/modal">
-          <Link.Trigger>
-            <ThemedText type="subtitle">Step 2: Explore</ThemedText>
-          </Link.Trigger>
-          <Link.Preview />
-          <Link.Menu>
-            <Link.MenuAction title="Action" icon="cube" onPress={() => alert('Action pressed')} />
-            <Link.MenuAction
-              title="Share"
-              icon="square.and.arrow.up"
-              onPress={() => alert('Share pressed')}
-            />
-            <Link.Menu title="More" icon="ellipsis">
-              <Link.MenuAction
-                title="Delete"
-                icon="trash"
-                destructive
-                onPress={() => alert('Delete pressed')}
-              />
-            </Link.Menu>
-          </Link.Menu>
-        </Link>
+    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+      <StatusBar barStyle="dark-content" backgroundColor="#f5f5f5" />
 
-        <ThemedText>
-          {`Tap the Explore tab to learn more about what's included in this starter app.`}
-        </ThemedText>
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 3: Get a fresh start</ThemedText>
-        <ThemedText>
-          {`When you're ready, run `}
-          <ThemedText type="defaultSemiBold">npm run reset-project</ThemedText> to get a fresh{' '}
-          <ThemedText type="defaultSemiBold">app</ThemedText> directory. This will move the current{' '}
-          <ThemedText type="defaultSemiBold">app</ThemedText> to{' '}
-          <ThemedText type="defaultSemiBold">app-example</ThemedText>.
-        </ThemedText>
-      </ThemedView>
-    </ParallaxScrollView>
+      <Text style={styles.greeting}>
+        Hola, {appUser?.displayName?.split(" ")[0] ?? "usuario"} 👋
+      </Text>
+      <Text style={styles.subtitle}>¿Qué deseas hacer hoy?</Text>
+
+      {/* Pantallas permitidas desde la BD */}
+      {screens.length > 0 && (
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Administración</Text>
+          <View style={styles.grid}>
+            {screens.map((screen) => (
+              <TouchableOpacity
+                key={screen.id}
+                style={styles.card}
+                activeOpacity={0.75}
+                onPress={() => router.push(`/${screen.routePath}` as any)}
+              >
+                <Text style={styles.cardIcon}>
+                  {SCREEN_ICONS[screen.routePath] ?? "📄"}
+                </Text>
+                <Text style={styles.cardText}>{screen.displayName}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </View>
+      )}
+
+      {/* Pantallas fijas de la app */}
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Herramientas</Text>
+        <View style={styles.grid}>
+          <TouchableOpacity
+            style={styles.card}
+            activeOpacity={0.75}
+            onPress={() => router.push("/_sitemap")}
+          >
+            <Text style={styles.cardIcon}>🌐</Text>
+            <Text style={styles.cardText}>Navegar</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.card}
+            activeOpacity={0.75}
+            onPress={() => router.push("/interprete/interprete" as any)}
+          >
+            <Text style={styles.cardIcon}>🤟</Text>
+            <Text style={styles.cardText}>Intérprete</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+
+      {screens.length === 0 && (
+        <View style={styles.emptyBox}>
+          <Text style={styles.emptyText}>
+            No tienes módulos de administración asignados.
+          </Text>
+        </View>
+      )}
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  titleContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
+  container: { flex: 1, backgroundColor: "#f5f5f5" },
+  content: { padding: 20, paddingBottom: 40 },
+  center: { flex: 1, justifyContent: "center", alignItems: "center" },
+
+  greeting: { fontSize: 22, fontWeight: "700", color: "#111", marginBottom: 4 },
+  subtitle: { fontSize: 14, color: "#888", marginBottom: 28 },
+
+  section: { marginBottom: 28 },
+  sectionTitle: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: "#999",
+    letterSpacing: 0.8,
+    marginBottom: 12,
+    textTransform: "uppercase",
   },
-  stepContainer: {
-    gap: 8,
-    marginBottom: 8,
+
+  grid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 12,
   },
-  reactLogo: {
-    height: 178,
-    width: 290,
-    bottom: 0,
-    left: 0,
-    position: 'absolute',
+  card: {
+    backgroundColor: "#fff",
+    borderRadius: 16,
+    padding: 18,
+    width: "47%",
+    minHeight: 100,
+    justifyContent: "space-between",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.07,
+    shadowRadius: 6,
+    elevation: 3,
   },
+  cardIcon: { fontSize: 28, marginBottom: 10 },
+  cardText: { fontSize: 15, fontWeight: "600", color: "#222" },
+
+  emptyBox: {
+    backgroundColor: "#fff",
+    borderRadius: 14,
+    padding: 20,
+    alignItems: "center",
+  },
+  emptyText: { fontSize: 14, color: "#aaa", textAlign: "center" },
 });

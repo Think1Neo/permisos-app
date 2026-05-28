@@ -1,0 +1,81 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    // Devuelve true si el usuario autenticado tiene isAdmin: true en su doc
+    function isAdmin() {
+      return isSignedIn()
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true;
+    }
+
+    // ── USERS ─────────────────────────────────────────────────────────────────
+    match /users/{uid} {
+      // Cualquier usuario autenticado puede leer su propio doc
+      // Los admins pueden leer y listar todos los usuarios
+      allow read, list: if isSignedIn()
+        && (request.auth.uid == uid || isAdmin());
+
+      // Solo el propio usuario puede crear su documento (al registrarse)
+      allow create: if isSignedIn() && request.auth.uid == uid;
+
+      // El propio usuario puede editarse (pero NO tocar campos sensibles)
+      // Los admins pueden editar cualquier campo de cualquier usuario
+      allow update: if isSignedIn() && (
+        isAdmin()
+        || (
+          request.auth.uid == uid
+          && !request.resource.data.diff(resource.data).affectedKeys()
+              .hasAny(['isBlocked', 'isActive', 'roleIds', 'permissionIds', 'isAdmin'])
+        )
+      );
+
+      allow delete: if false;
+    }
+
+    // ── ROLES ─────────────────────────────────────────────────────────────────
+    match /roles/{roleId} {
+      allow read, list: if true;   // público: necesario en register sin sesión
+      allow write:      if false;
+    }
+
+    // ── PERMISSIONS ───────────────────────────────────────────────────────────
+    match /permissions/{permId} {
+      allow read, list: if isSignedIn();
+      allow write:      if false;
+    }
+
+    // ── SCREENS ───────────────────────────────────────────────────────────────
+    match /screens/{screenId} {
+      allow read, list: if isSignedIn();
+      allow write:      if false;
+    }
+
+    // ── LOGS ──────────────────────────────────────────────────────────────────
+    match /logs/{logId} {
+      allow read, list: if isSignedIn();
+      allow create:     if isSignedIn()
+        && request.resource.data.userId == request.auth.uid;
+      allow update, delete: if false;
+    }
+
+    // ── SESSIONS ──────────────────────────────────────────────────────────────
+    match /sessions/{sessionId} {
+      allow read, list: if isSignedIn();
+      allow create:     if isSignedIn()
+        && request.resource.data.userId == request.auth.uid;
+      allow update:     if isSignedIn()
+        && resource.data.userId == request.auth.uid;
+      allow delete:     if false;
+    }
+
+    // ── APP CONFIG ────────────────────────────────────────────────────────────
+    match /app_config/{key} {
+      allow read, list: if isSignedIn();
+      allow write:      if false;
+    }
+  }
+}

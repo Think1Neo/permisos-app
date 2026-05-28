@@ -41,3 +41,11 @@ app-example
 # generated native folders
 /ios
 /android
+
+# notas mias
+notes.md
+
+# Api keys y data muy importante
+.env
+data.md
+service-account.json
