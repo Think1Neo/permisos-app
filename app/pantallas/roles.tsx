@@ -3,13 +3,11 @@ import { useScreenGuard } from "@/hooks/useAuthHooks";
 import { db } from "@/lib/firebase";
 import type { Permission, Role } from "@/lib/types";
 import { createRole, subscribeRoles, updateRole } from "@/services/roleService";
-import { router } from "expo-router";
 import { collection, getDocs, orderBy, query } from "firebase/firestore";
 import { useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
-  Button,
   Modal,
   ScrollView,
   StyleSheet,
@@ -17,7 +15,7 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
-  View,
+  View
 } from "react-native";
 
 // ─── tipos locales ─────────────────────────────────────────────────────────────
@@ -159,7 +157,6 @@ export default function RolesScreen() {
   return (
     <View style={s.container}>
       {/* cabecera */}
-      <Button title="Volver" onPress={() => router.back()} color="#6366f1" />
       <View style={s.header}>
         <Text style={s.title}>Roles</Text>
         <TouchableOpacity

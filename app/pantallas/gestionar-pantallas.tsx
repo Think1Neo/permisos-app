@@ -8,13 +8,11 @@ import {
   subscribeScreens,
   updateScreenPermissions,
 } from "@/services/screenService";
-import { router } from "expo-router";
 import { collection, getDocs, orderBy, query } from "firebase/firestore";
 import { useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
-  Button,
   Modal,
   ScrollView,
   StyleSheet,
@@ -22,7 +20,7 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
-  View,
+  View
 } from "react-native";
 
 export default function PantallasScreen() {
@@ -136,7 +134,6 @@ export default function PantallasScreen() {
 
   return (
     <View style={s.container}>
-      <Button title="Volver" onPress={() => router.back()} color="#6366f1" />
       <View style={s.header}>
         <Text style={s.title}>Pantallas</Text>
         <Text style={s.subtitle}>{screens.length} registradas</Text>

@@ -2,7 +2,13 @@ import Card from "@/components/ui/card";
 import { loginUser } from "@/services/authService";
 import { router } from "expo-router";
 import { useState } from "react";
-import { ActivityIndicator, Alert, StyleSheet, View } from "react-native";
+import {
+  ActivityIndicator,
+  Alert,
+  Button,
+  StyleSheet,
+  View,
+} from "react-native";
 
 export default function Login() {
   const [loading, setLoading] = useState(false);
@@ -60,6 +66,10 @@ export default function Login() {
           onPress: () => router.push("/login/register"),
         }}
         theme={{ primaryBackground: "#6366f1", cardBorderRadius: 20 }}
+      />
+      <Button
+        title="¿Olvidaste tu contraseña?"
+        onPress={() => router.push("/login/forgot")}
       />
     </View>
   );

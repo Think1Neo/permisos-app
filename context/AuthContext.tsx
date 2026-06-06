@@ -1,23 +1,25 @@
+import { onAuthStateChanged } from "firebase/auth";
+import {
+  collection,
+  doc,
+  getDocs,
+  onSnapshot,
+  query,
+  serverTimestamp,
+  setDoc,
+  where,
+} from "firebase/firestore";
 import React, {
   createContext,
+  useCallback,
   useContext,
   useEffect,
-  useState,
-  useCallback,
   useRef,
-} from 'react';
-import { onAuthStateChanged } from 'firebase/auth';
-import {
-  doc,
-  onSnapshot,
-  collection,
-  query,
-  where,
-  getDocs,
-} from 'firebase/firestore';
-import { auth, db } from '../lib/firebase';
-import type { AuthState, AppUser, Role, Permission } from '../lib/types';
-import { logoutUser } from '../services/authService';
+  useState,
+} from "react";
+import { auth, db } from "../lib/firebase";
+import type { AppUser, AuthState, Permission, Role } from "../lib/types";
+import { logoutUser } from "../services/authService";
 
 const AuthContext = createContext<
   AuthState & {
@@ -52,7 +54,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const unsubscribeUserRef = useRef<(() => void) | null>(null);
 
   const resolvePermissions = useCallback(
-    async (appUser: AppUser): Promise<{ roles: Role[]; permissions: Permission[]; keys: Set<string> }> => {
+    async (
+      appUser: AppUser,
+    ): Promise<{
+      roles: Role[];
+      permissions: Permission[];
+      keys: Set<string>;
+    }> => {
       const allRoleIds = appUser.roleIds ?? [];
       const allPermIds = [...(appUser.permissionIds ?? [])];
 
@@ -62,9 +70,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         for (const chunk of chunks) {
           const snap = await getDocs(
             query(
-              collection(db, 'roles'),
-              where('__name__', 'in', chunk),
-              where('isActive', '==', true),
+              collection(db, "roles"),
+              where("__name__", "in", chunk),
+              where("isActive", "==", true),
             ),
           );
           snap.docs.forEach((d) => {
@@ -82,9 +90,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         for (const chunk of chunks) {
           const snap = await getDocs(
             query(
-              collection(db, 'permissions'),
-              where('__name__', 'in', chunk),
-              where('isActive', '==', true),
+              collection(db, "permissions"),
+              where("__name__", "in", chunk),
+              where("isActive", "==", true),
             ),
           );
           snap.docs.forEach((d) =>
@@ -121,34 +129,48 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return;
       }
 
-      console.log('[AuthContext] usuario autenticado uid:', firebaseUser.uid);
-
-      const userRef = doc(db, 'users', firebaseUser.uid);
+      const userRef = doc(db, "users", firebaseUser.uid);
 
       const unsubUser = onSnapshot(
         userRef,
         async (snap) => {
-          console.log('[AuthContext] onSnapshot fired — exists:', snap.exists());
-
+          // Documento no existe todavía — lo crea registerUser, esperamos
           if (!snap.exists()) {
-            // El documento todavía no existe — registerUser lo creará
-            // con todos los campos correctos (incluido roleIds).
-            // AuthContext NUNCA crea documentos; solo los lee.
-            // El onSnapshot volverá a disparar en cuanto registerUser
-            // termine el setDoc y el rol ya estará presente.
-            console.log('[AuthContext] doc no existe aún, esperando a registerUser...');
+            try {
+              await setDoc(
+                userRef,
+                {
+                  email: firebaseUser.email ?? "",
+                  displayName: firebaseUser.displayName ?? "",
+                  photoURL: firebaseUser.photoURL ?? null,
+                  isActive: true,
+                  isBlocked: false,
+                  roleIds: [],
+                  permissionIds: [],
+                  lastLogin: serverTimestamp(),
+                  createdAt: serverTimestamp(),
+                  updatedAt: serverTimestamp(),
+                  updatedBy: firebaseUser.uid,
+                },
+                { merge: true },
+              );
+            } catch {
+              // registerUser ya lo está creando en paralelo, ignorar
+            }
             return;
           }
 
           const appUser = { uid: snap.id, ...snap.data() } as AppUser;
-          console.log('[AuthContext] appUser cargado:', appUser.email, '| roleIds:', appUser.roleIds);
 
+          // Bloqueo en tiempo real
           if (appUser.isBlocked || !appUser.isActive) {
-            await logoutUser(firebaseUser.uid, firebaseUser.email ?? '');
+            await logoutUser(firebaseUser.uid, firebaseUser.email ?? "");
             return;
           }
 
-          const { roles, permissions, keys } = await resolvePermissions(appUser);
+          // Resolver permisos solo en memoria — sin escribir nada a Firestore
+          const { roles, permissions, keys } =
+            await resolvePermissions(appUser);
 
           setState({
             firebaseUser,
@@ -161,9 +183,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           });
         },
         (error) => {
-          console.error('[AuthContext] onSnapshot error — code:', error.code);
-          console.error('[AuthContext] onSnapshot error — message:', error.message);
-          console.error('[AuthContext] path que falló: users/' + firebaseUser.uid);
+          console.warn("[AuthContext] error:", error.code);
           setState((prev) => ({ ...prev, isLoading: false }));
         },
       );
@@ -189,7 +209,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [state.appUser]);
 
   return (
-    <AuthContext.Provider value={{ ...state, hasPermission, logout, refreshAuth }}>
+    <AuthContext.Provider
+      value={{ ...state, hasPermission, logout, refreshAuth }}
+    >
       {children}
     </AuthContext.Provider>
   );

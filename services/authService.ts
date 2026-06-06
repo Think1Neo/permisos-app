@@ -1,6 +1,7 @@
 import Constants from "expo-constants";
 import {
   createUserWithEmailAndPassword,
+  sendPasswordResetEmail,
   signInWithEmailAndPassword,
   signOut,
   updateProfile,
@@ -95,6 +96,7 @@ export async function registerUser(
     isAdmin: false,
     roleIds: initialRoleId ? [initialRoleId] : [],
     permissionIds: [],
+    resolvedPermissionKeys: [],  // se recalcula en updateUserRoles/updateUserPermissions
     lastLogin: null,
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
@@ -142,4 +144,9 @@ export async function logoutUser(
   });
 
   await signOut(auth);
+}
+
+// ─── FORGOT PASSWORD ───────────────────────────────────────────────────────────
+export async function resetPassword(email: string): Promise<void> {
+  await sendPasswordResetEmail(auth, email);
 }

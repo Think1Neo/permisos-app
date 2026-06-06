@@ -2,7 +2,6 @@ import { useAuth } from "@/context/AuthContext";
 import { useScreenGuard } from "@/hooks/useAuthHooks";
 import { db } from "@/lib/firebase";
 import type { Log, LogAction } from "@/lib/types";
-import { router } from "expo-router";
 import {
   collection,
   DocumentData,
@@ -17,14 +16,13 @@ import {
 import { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator,
-  Button,
   FlatList,
   Modal,
   RefreshControl,
   StyleSheet,
   Text,
   TouchableOpacity,
-  View,
+  View
 } from "react-native";
 
 // ─── config ───────────────────────────────────────────────────────────────────
@@ -162,7 +160,6 @@ export default function LogsScreen() {
   return (
     <View style={s.container}>
       {/* cabecera */}
-      <Button title="Volver" onPress={() => router.back()} color="#6366f1" />
       <View style={s.header}>
         <View>
           <Text style={s.title}>Auditoría</Text>

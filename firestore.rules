@@ -6,30 +6,42 @@ service cloud.firestore {
       return request.auth != null;
     }
 
-    // Devuelve true si el usuario autenticado tiene isAdmin: true en su doc
     function isAdmin() {
       return isSignedIn()
         && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true;
     }
 
+    // Verifica una permission key contra el campo resolvedPermissionKeys
+    // del documento del usuario en Firestore (debe mantenerse sincronizado)
+    function hasPermission(key) {
+      return isSignedIn()
+        && key in get(/databases/$(database)/documents/users/$(request.auth.uid)).data.resolvedPermissionKeys;
+    }
+
+    function isAdminOrHasPermission(key) {
+      return isAdmin() || hasPermission(key);
+    }
+
+    // System Master — acceso total de escritura a colecciones base
+    function isSystemMaster() {
+      return hasPermission('system:master');
+    }
+
     // ── USERS ─────────────────────────────────────────────────────────────────
     match /users/{uid} {
-      // Cualquier usuario autenticado puede leer su propio doc
-      // Los admins pueden leer y listar todos los usuarios
       allow read, list: if isSignedIn()
-        && (request.auth.uid == uid || isAdmin());
+        && (request.auth.uid == uid || isAdminOrHasPermission('manage:users') || isSystemMaster());
 
-      // Solo el propio usuario puede crear su documento (al registrarse)
       allow create: if isSignedIn() && request.auth.uid == uid;
 
-      // El propio usuario puede editarse (pero NO tocar campos sensibles)
-      // Los admins pueden editar cualquier campo de cualquier usuario
       allow update: if isSignedIn() && (
         isAdmin()
+        || isSystemMaster()
+        || hasPermission('manage:users')
         || (
           request.auth.uid == uid
           && !request.resource.data.diff(resource.data).affectedKeys()
-              .hasAny(['isBlocked', 'isActive', 'roleIds', 'permissionIds', 'isAdmin'])
+              .hasAny(['isBlocked', 'isActive', 'roleIds', 'permissionIds', 'isAdmin', 'resolvedPermissionKeys'])
         )
       );
 
@@ -38,20 +50,23 @@ service cloud.firestore {
 
     // ── ROLES ─────────────────────────────────────────────────────────────────
     match /roles/{roleId} {
-      allow read, list: if true;   // público: necesario en register sin sesión
-      allow write:      if false;
+      allow read, list: if true;
+      allow create, update: if isAdminOrHasPermission('manage:roles') || isSystemMaster();
+      allow delete:         if isSystemMaster();
     }
 
     // ── PERMISSIONS ───────────────────────────────────────────────────────────
     match /permissions/{permId} {
       allow read, list: if isSignedIn();
-      allow write:      if false;
+      allow create, update: if isSystemMaster();
+      allow delete:         if false;
     }
 
     // ── SCREENS ───────────────────────────────────────────────────────────────
     match /screens/{screenId} {
       allow read, list: if isSignedIn();
-      allow write:      if false;
+      allow create, update: if isAdminOrHasPermission('manage:screens') || isSystemMaster();
+      allow delete:         if false;
     }
 
     // ── LOGS ──────────────────────────────────────────────────────────────────
@@ -75,7 +90,8 @@ service cloud.firestore {
     // ── APP CONFIG ────────────────────────────────────────────────────────────
     match /app_config/{key} {
       allow read, list: if isSignedIn();
-      allow write:      if false;
+      allow create, update: if isSystemMaster();
+      allow delete:         if false;
     }
   }
 }

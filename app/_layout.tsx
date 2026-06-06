@@ -21,6 +21,7 @@ function RootLayoutInner() {
       <Stack.Screen name="bienvenida/bienvenida" />
       <Stack.Screen name="login/login" />
       <Stack.Screen name="login/register" />
+      <Stack.Screen name="login/forgot" />
       <Stack.Screen name="pantallas" />
     </Stack>
   );

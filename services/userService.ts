@@ -13,6 +13,62 @@ import { db } from '../lib/firebase';
 import { writeLog } from './logService';
 import type { AppUser } from '../lib/types';
 
+// ─── HELPERS ───────────────────────────────────────────────────────────────────
+
+// Resuelve todos los permission keys de un usuario dado sus roleIds y permissionIds directos.
+// Se guarda en el doc para que Firestore Rules pueda leerlo sin joins.
+async function resolvePermissionKeys(
+  roleIds: string[],
+  directPermIds: string[],
+): Promise<string[]> {
+  const allPermIds = [...directPermIds];
+
+  if (roleIds.length > 0) {
+    const chunks = chunkArray(roleIds, 10);
+    for (const chunk of chunks) {
+      const snap = await getDocs(
+        query(
+          collection(db, 'roles'),
+          where('__name__', 'in', chunk),
+          where('isActive', '==', true),
+        ),
+      );
+      snap.docs.forEach((d) => {
+        const permIds = (d.data().permissionIds ?? []) as string[];
+        allPermIds.push(...permIds);
+      });
+    }
+  }
+
+  const uniquePermIds = [...new Set(allPermIds)];
+  const keys: string[] = [];
+
+  if (uniquePermIds.length > 0) {
+    const chunks = chunkArray(uniquePermIds, 10);
+    for (const chunk of chunks) {
+      const snap = await getDocs(
+        query(
+          collection(db, 'permissions'),
+          where('__name__', 'in', chunk),
+          where('isActive', '==', true),
+        ),
+      );
+      snap.docs.forEach((d) => {
+        const key = d.data().key as string;
+        if (key) keys.push(key);
+      });
+    }
+  }
+
+  return [...new Set(keys)];
+}
+
+function chunkArray<T>(arr: T[], size: number): T[][] {
+  const chunks: T[][] = [];
+  for (let i = 0; i < arr.length; i += size) chunks.push(arr.slice(i, i + size));
+  return chunks;
+}
+
 // ─── GET ALL USERS ─────────────────────────────────────────────────────────────
 export async function getAllUsers(): Promise<AppUser[]> {
   const snap = await getDocs(query(collection(db, 'users'), orderBy('createdAt', 'desc')));
@@ -58,8 +114,12 @@ export async function updateUserRoles(
   const snap = await getDoc(ref);
   const old = snap.data();
 
+  const directPermIds = (old?.permissionIds ?? []) as string[];
+  const resolvedPermissionKeys = await resolvePermissionKeys(newRoleIds, directPermIds);
+
   await updateDoc(ref, {
     roleIds: newRoleIds,
+    resolvedPermissionKeys,
     updatedAt: serverTimestamp(),
     updatedBy: actorUid,
   });
@@ -71,7 +131,7 @@ export async function updateUserRoles(
     targetCollection: 'users',
     targetId: targetUid,
     oldValue: { roleIds: old?.roleIds },
-    newValue: { roleIds: newRoleIds },
+    newValue: { roleIds: newRoleIds, resolvedPermissionKeys },
   });
 }
 
@@ -86,8 +146,12 @@ export async function updateUserPermissions(
   const snap = await getDoc(ref);
   const old = snap.data();
 
+  const roleIds = (old?.roleIds ?? []) as string[];
+  const resolvedPermissionKeys = await resolvePermissionKeys(roleIds, newPermIds);
+
   await updateDoc(ref, {
     permissionIds: newPermIds,
+    resolvedPermissionKeys,
     updatedAt: serverTimestamp(),
     updatedBy: actorUid,
   });
@@ -99,6 +163,6 @@ export async function updateUserPermissions(
     targetCollection: 'users',
     targetId: targetUid,
     oldValue: { permissionIds: old?.permissionIds },
-    newValue: { permissionIds: newPermIds },
+    newValue: { permissionIds: newPermIds, resolvedPermissionKeys },
   });
 }

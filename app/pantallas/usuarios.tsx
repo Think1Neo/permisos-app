@@ -7,13 +7,11 @@ import {
   setUserBlocked,
   updateUserRoles,
 } from "@/services/userService";
-import { router } from "expo-router";
 import { collection, getDocs, orderBy, query } from "firebase/firestore";
 import { useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
-  Button,
   Modal,
   RefreshControl,
   ScrollView,
@@ -21,7 +19,7 @@ import {
   Switch,
   Text,
   TouchableOpacity,
-  View,
+  View
 } from "react-native";
 
 export default function UsuariosScreen() {
@@ -143,7 +141,6 @@ export default function UsuariosScreen() {
 
   return (
     <View style={s.container}>
-      <Button title="Volver" onPress={() => router.back()} color="#6366f1" />
       <View style={s.header}>
         <Text style={s.title}>Usuarios</Text>
         <Text style={s.subtitle}>{users.length} registrados</Text>
