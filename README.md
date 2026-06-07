@@ -1,50 +1,151 @@
-# Welcome to your Expo app 👋
+\# Permisos App — h_app
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+Aplicación móvil **React Native / Expo** con sistema **RBAC (Role-Based Access Control)** completo sobre Firebase. Permite controlar qué pantallas y funcionalidades puede ver cada usuario según sus roles y permisos, todo configurable en tiempo real desde Firestore.
 
-## Get started
+Para la materia de Desarrollo de aplicacion moviles avanzada del tecnologico en que estoy.
 
-1. Install dependencies
+## por: Jorge Alejandro Martinez Vazquez
 
-   ```bash
-   npm install
-   ```
+## Índice de documentación
 
-2. Start the app
+| Archivo                     | Contenido                                           |
+| --------------------------- | --------------------------------------------------- |
+| `README.md`                 | Este archivo — visión general y setup               |
+| `docs/arquitectura.md`      | Diagrama de arquitectura y decisiones técnicas      |
+| `docs/firebase.md`          | Colecciones Firestore, reglas de seguridad, Auth    |
+| `docs/rbac.md`              | Sistema de roles, permisos y cómo usarlos en código |
+| `docs/componentes.md`       | AuthContext, hooks y tipos TypeScript               |
+| `docs/variables-entorno.md` | Variables `.env` necesarias                         |
 
-   ```bash
-   npx expo start
-   ```
+---
 
-In the output, you'll find options to open the app in a
+## Stack tecnológico
 
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
+| Capa       | Tecnología                       |
+| ---------- | -------------------------------- |
+| Framework  | Expo SDK 54 + Expo Router 6      |
+| UI         | React Native 0.81 + React 19     |
+| Backend    | Firebase (Auth + Firestore)      |
+| Lenguaje   | TypeScript (strict mode)         |
+| Navegación | Expo Router (file-based routing) |
+| Linting    | ESLint con config Expo           |
 
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
+---
 
-## Get a fresh project
+## Requisitos
 
-When you're ready, run:
+- Node.js 18+
+- Expo CLI (`npm install -g expo-cli`)
+- Cuenta Firebase con proyecto activo
+- Archivo `.env` con variables de Firebase (ver `docs/variables-entorno.md`)
+
+---
+
+## Setup rápido
 
 ```bash
-npm run reset-project
+# 1. Instalar dependencias
+npm install
+
+# 2. Crear archivo .env con tus credenciales Firebase
+cp .env.example .env
+# editar .env con tus valores
+
+# 3. Inicializar datos en Firestore (una sola vez)
+GOOGLE_APPLICATION_CREDENTIALS=./service-account.json node seed.js
+
+# 4. Correr la app
+npx expo start
 ```
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+---
 
-## Learn more
+## Scripts disponibles
 
-To learn more about developing your project with Expo, look at the following resources:
+```bash
+npm run start          # Inicia el servidor de desarrollo
+npm run android        # Abre en emulador Android
+npm run ios            # Abre en simulador iOS
+npm run web            # Abre en navegador
+npm run lint           # Corre ESLint
+npm run reset-project  # Limpia el proyecto (mueve app/ a app-example/)
+```
 
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
+---
 
-## Join the community
+## Estructura de carpetas
 
-Join our community of developers creating universal apps.
+```
+h_app/
+├── app/                          # Pantallas (file-based routing con Expo Router)
+│   ├── _layout.tsx               # Layout raíz — envuelve con AuthProvider
+│   ├── (tabs)/
+│   │   └── _layout.tsx           # Tabs principales (nombres desde Firestore)
+│   ├── bienvenida/               # Pantallas públicas (sin auth)
+│   ├── login/                    # Pantallas de login
+│   └── pantallas/                # Panel de administración RBAC
+│       ├── usuarios.tsx          # Gestión de usuarios
+│       ├── roles.tsx             # Gestión de roles y permisos
+│       ├── pantallas.tsx         # Gestión de pantallas
+│       ├── logs.tsx              # Auditoría
+│       └── system-master.tsx     # Panel System Master
+├── lib/
+│   ├── firebase.ts               # Inicialización y exports de Firebase
+│   └── types.ts                  # Todos los tipos TypeScript del proyecto
+├── context/
+│   └── AuthContext.tsx           # Proveedor de autenticación + permisos resueltos
+├── hooks/
+│   └── useAuthHooks.ts           # usePermission, useScreenGuard, useAuthRedirect
+├── services/
+│   ├── authService.ts            # login, register, logout
+│   ├── userService.ts            # bloquear, asignar roles/permisos
+│   ├── screenService.ts          # gestionar pantallas desde BD
+│   └── logService.ts             # auditoría de acciones
+├── assets/
+│   ├── fonts/                    # Fuente LSM.ttf
+│   └── images/                   # Iconos y splash screen
+├── docs/                         # Documentación técnica
+├── seed.js                       # Script de inicialización de Firestore
+├── firestore.rules               # Reglas de seguridad de Firestore
+├── app.json                      # Configuración de Expo
+├── package.json
+└── tsconfig.json
+```
 
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+---
+
+## Asignar primer administrador
+
+Después de correr el seed, asigna el rol de administrador a tu usuario desde Firebase Console:
+
+1. Ir a **Firestore → colección `users` → tu UID**
+2. Editar el documento y agregar:
+
+```json
+{
+  "roleIds": ["role_admin"],
+  "isActive": true,
+  "isBlocked": false
+}
+```
+
+Para acceso total (System Master):
+
+```json
+{
+  "roleIds": ["role_system_master"]
+}
+```
+
+---
+
+> [!WARNING]
+>
+> - **Nunca subas `service-account.json` a git** — agrégalo a `.gitignore`
+> - **Nunca subas `.env`** con tus credenciales Firebase
+> - Las reglas de Firestore (`firestore.rules`) son la última línea de defensa
+> - Para operaciones críticas (modificar roles globales, permisos base), usar Cloud Functions con Admin SDK
+
+# [Documentacion](/docs/OVERVIEW.md)
+
+En la carpeta estan todas
