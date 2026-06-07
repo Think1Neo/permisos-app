@@ -114,15 +114,6 @@ export default function Index() {
             <Text style={styles.cardIcon}>🌐</Text>
             <Text style={styles.cardText}>Navegar</Text>
           </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.card}
-            activeOpacity={0.75}
-            onPress={() => router.push("/interprete/interprete" as any)}
-          >
-            <Text style={styles.cardIcon}>🤟</Text>
-            <Text style={styles.cardText}>Intérprete</Text>
-          </TouchableOpacity>
         </View>
       </View>
 

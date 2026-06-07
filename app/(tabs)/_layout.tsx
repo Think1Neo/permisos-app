@@ -1,3 +1,4 @@
+import { Ionicons } from "@expo/vector-icons";
 import { Tabs } from "expo-router";
 import {
   collection,
@@ -27,10 +28,9 @@ export default function TabsLayout() {
     });
   }, [isAuthenticated]);
 
-  // Determina si el usuario puede ver una pantalla dada su configuración
   function canSeeTab(routePath: string): boolean {
     const config = screens.find((s) => s.routePath === routePath);
-    if (!config) return true; // sin config → visible
+    if (!config) return true;
     if (!config.isActive) return false;
     return config.requiredPermissions.every((k) =>
       resolvedPermissionKeys.has(k),
@@ -44,12 +44,33 @@ export default function TabsLayout() {
   }
 
   return (
-    <Tabs>
+    <Tabs
+      screenOptions={{
+        tabBarActiveTintColor: "#6366f1",
+        tabBarInactiveTintColor: "#aaa",
+        tabBarStyle: {
+          borderTopWidth: 0,
+          elevation: 8,
+          shadowColor: "#000",
+          shadowOffset: { width: 0, height: -2 },
+          shadowOpacity: 0.06,
+          shadowRadius: 8,
+        },
+        headerShown: true,
+      }}
+    >
       <Tabs.Screen
         name="index"
         options={{
           title: getTabName("(tabs)/index", "Inicio"),
           href: canSeeTab("(tabs)/index") ? undefined : null,
+          tabBarIcon: ({ color, size, focused }) => (
+            <Ionicons
+              name={focused ? "home" : "home-outline"}
+              size={size}
+              color={color}
+            />
+          ),
         }}
       />
       <Tabs.Screen
@@ -57,29 +78,15 @@ export default function TabsLayout() {
         options={{
           title: getTabName("(tabs)/profile", "Perfil"),
           href: canSeeTab("(tabs)/profile") ? undefined : null,
+          tabBarIcon: ({ color, size, focused }) => (
+            <Ionicons
+              name={focused ? "person" : "person-outline"}
+              size={size}
+              color={color}
+            />
+          ),
         }}
       />
     </Tabs>
   );
 }
-
-/*
-import { Tabs } from "expo-router";
-
-export default function RootLayout() {
-  return (
-    <Tabs>
-      <Tabs.Screen
-        name="index"
-        options={{
-          title: "Dashboard",
-          //headerTintColor: "orange",
-          headerTitleStyle: { fontSize: 20, fontWeight: "bold" },
-        }}
-      />
-      <Tabs.Screen name="profile" options={{ title: "Perfil" }} />
-    </Tabs>
-  );
-}
-
-*/
